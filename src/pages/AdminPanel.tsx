@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -132,6 +132,35 @@ const AdminPanel = () => {
             <LogOut className="mr-2 h-4 w-4" />
             Logout
           </Button>
+        </div>
+
+        {/* Quick stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          <Card>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total products</p>
+                  <p className="text-2xl font-bold">{products.length}</p>
+                </div>
+                <div className="text-muted-foreground">📦</div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total inventory value</p>
+                  <p className="text-2xl font-bold">{new Intl.NumberFormat(undefined, { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(
+                    products.reduce((sum, p) => sum + (p.price_cents || 0), 0)
+                  )}</p>
+                </div>
+                <div className="text-muted-foreground">💰</div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <Card className="mb-8">

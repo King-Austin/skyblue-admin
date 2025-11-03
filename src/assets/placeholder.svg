@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300" fill="none">
+  <rect width="400" height="300" rx="12" fill="#F3F4F6" />
+  <g transform="translate(40,40)" fill="#9CA3AF">
+    <rect x="0" y="0" width="320" height="220" rx="8" fill="#E5E7EB" />
+    <path d="M20 160 L140 60 L230 150 L300 100 L320 120 L320 200 L0 200 Z" fill="#D1D5DB" />
+  </g>
+  <text x="200" y="260" text-anchor="middle" fill="#6B7280" font-family="Inter, Arial, sans-serif" font-size="14">No image available</text>
+</svg>
