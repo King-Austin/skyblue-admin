@@ -11,10 +11,7 @@ const Index = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [sort, setSort] = useState<'newest' | 'price-asc' | 'price-desc'>('newest');
-  const [minPrice, setMinPrice] = useState<number | ''>('');
-  const [maxPrice, setMaxPrice] = useState<number | ''>('');
-  const [hasImage, setHasImage] = useState(false);
+  const [searchOnly, setSearchOnly] = useState('');
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -73,43 +70,15 @@ const Index = () => {
         </div>
 
         {/* Controls */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-          <div className="flex items-center gap-2 w-full md:w-2/3">
-            <input
-              aria-label="Search products"
-              placeholder="Search products..."
-              className="w-full md:w-1/2 border rounded px-3 py-2"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <select className="border rounded px-3 py-2" value={sort} onChange={(e) => setSort(e.target.value as any)}>
-              <option value="newest">Newest</option>
-              <option value="price-asc">Price: Low → High</option>
-              <option value="price-desc">Price: High → Low</option>
-            </select>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={hasImage} onChange={(e) => setHasImage(e.target.checked)} />
-              Has image
-            </label>
-          </div>
-
-          <div className="flex items-center gap-2 w-full md:w-1/3">
-            <input
-              aria-label="Min price"
-              placeholder="Min price"
-              className="w-1/3 border rounded px-3 py-2"
-              value={minPrice as any}
-              onChange={(e) => setMinPrice(e.target.value === '' ? '' : Number(e.target.value))}
-            />
-            <input
-              aria-label="Max price"
-              placeholder="Max price"
-              className="w-1/3 border rounded px-3 py-2"
-              value={maxPrice as any}
-              onChange={(e) => setMaxPrice(e.target.value === '' ? '' : Number(e.target.value))}
-            />
-            <Button onClick={() => { setSearch(''); setMinPrice(''); setMaxPrice(''); setHasImage(false); setSort('newest'); }} variant="outline">Reset</Button>
-          </div>
+        <div className="flex items-center gap-2 mb-6">
+          <input
+            aria-label="Search products"
+            placeholder="Search products..."
+            className="w-full md:w-1/2 border rounded px-3 py-2"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <Button onClick={() => setSearch('')} variant="outline">Clear</Button>
         </div>
 
         {loading ? (
@@ -117,14 +86,22 @@ const Index = () => {
         ) : error ? (
           <div className="text-center text-destructive py-8">{error}</div>
         ) : (
-          <FilteredGrid products={products} search={search} sort={sort} minPrice={minPrice} maxPrice={maxPrice} hasImage={hasImage} />
+          <FilteredGrid products={products} search={search} />
         )}
       </div>
+
+      <footer className="border-t mt-12 py-6">
+        <div className="max-w-7xl mx-auto px-4 text-center text-sm text-muted-foreground">
+          <span>© {new Date().getFullYear()} SkyBlue Shop</span>
+          <span className="mx-2">·</span>
+          <span>Built with care</span>
+        </div>
+      </footer>
     </div>
   );
 };
 
-const FilteredGrid = ({ products, search, sort, minPrice, maxPrice, hasImage }: any) => {
+const FilteredGrid = ({ products, search }: any) => {
   const filtered = useMemo(() => {
     const q = (search || '').toLowerCase().trim();
     let list = products.slice();
@@ -135,25 +112,8 @@ const FilteredGrid = ({ products, search, sort, minPrice, maxPrice, hasImage }: 
       );
     }
 
-    if (minPrice !== '') {
-      list = list.filter((p: any) => (p.price || 0) >= Number(minPrice));
-    }
-    if (maxPrice !== '') {
-      list = list.filter((p: any) => (p.price || 0) <= Number(maxPrice));
-    }
-
-    if (hasImage) {
-      list = list.filter((p: any) => p.image && !String(p.image).toLowerCase().includes('placeholder'));
-    }
-
-    if (sort === 'price-asc') {
-      list.sort((a: any, b: any) => (a.price || 0) - (b.price || 0));
-    } else if (sort === 'price-desc') {
-      list.sort((a: any, b: any) => (b.price || 0) - (a.price || 0));
-    }
-
     return list;
-  }, [products, search, sort, minPrice, maxPrice, hasImage]);
+  }, [products, search]);
 
   if (filtered.length === 0) {
     return (
