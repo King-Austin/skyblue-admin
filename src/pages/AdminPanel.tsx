@@ -7,16 +7,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Trash2, Plus, LogOut } from 'lucide-react';
-import { products as initialProducts } from '@/data/products';
+import { Trash2, Plus, LogOut, Loader2, Upload } from 'lucide-react';
+import { supabase, uploadFile } from '@/lib/supabaseClient';
 
 interface Product {
   id: string;
   name: string;
-  shortDescription: string;
-  fullDescription: string;
-  price: number;
-  image: string;
+  short_description: string;
+  full_description: string;
+  price_cents: number;
+  image_url: string;
 }
 
 const AdminPanel = () => {
@@ -25,48 +25,95 @@ const AdminPanel = () => {
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [newProduct, setNewProduct] = useState({
     name: '',
-    shortDescription: '',
-    fullDescription: '',
-    price: 0,
-    image: '',
+    short_description: '',
+    full_description: '',
+    price_cents: '',
+    image_url: '',
   });
 
+  // 🟢 Fetch products from Supabase
   useEffect(() => {
     if (!isAdmin) {
       navigate('/login');
       return;
     }
-    
-    const savedProducts = localStorage.getItem('products');
-    setProducts(savedProducts ? JSON.parse(savedProducts) : initialProducts);
-  }, [isAdmin, navigate]);
 
-  const saveProducts = (updatedProducts: Product[]) => {
-    setProducts(updatedProducts);
-    localStorage.setItem('products', JSON.stringify(updatedProducts));
-  };
+    const fetchProducts = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-  const handleDelete = (id: string) => {
-    const updatedProducts = products.filter(p => p.id !== id);
-    saveProducts(updatedProducts);
-  };
+      if (error) {
+        toast({ title: 'Error fetching products', description: error.message });
+      } else {
+        setProducts(data || []);
+      }
+      setLoading(false);
+    };
 
-  const handleAddProduct = (e: React.FormEvent) => {
+    fetchProducts();
+  }, [isAdmin, navigate, toast]);
+
+  // 🟣 Add new product
+  const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    const maxId = Math.max(...products.map(p => parseInt(p.id)), 0);
-    const id = String(maxId + 1);
-    const productToAdd = { ...newProduct, id };
-    saveProducts([...products, productToAdd]);
-    setNewProduct({
-      name: '',
-      shortDescription: '',
-      fullDescription: '',
-      price: 0,
-      image: '',
-    });
-    setShowAddForm(false);
+    setUploading(true);
+
+    try {
+      let imageUrl = newProduct.image_url;
+
+      // Upload file if selected
+      if (selectedFile) {
+        imageUrl = await uploadFile(selectedFile);
+      }
+
+      const { data, error } = await supabase
+        .from('products')
+        .insert([{
+          ...newProduct,
+          image_url: imageUrl
+        }])
+        .select();
+
+      if (error) {
+        toast({ title: 'Failed to add product', description: error.message });
+      } else {
+        toast({ title: 'Product added successfully!' });
+        setProducts([data![0], ...products]);
+        setShowAddForm(false);
+        setNewProduct({
+          name: '',
+          short_description: '',
+          full_description: '',
+          price_cents: 0,
+          image_url: '',
+        });
+        setSelectedFile(null);
+      }
+    } catch (error: any) {
+      toast({ title: 'Upload failed', description: error.message });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // 🔴 Delete product
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from('products').delete().eq('id', id);
+
+    if (error) {
+      toast({ title: 'Error deleting product', description: error.message });
+    } else {
+      toast({ title: 'Product deleted successfully' });
+      setProducts(products.filter((p) => p.id !== id));
+    }
   };
 
   const handleLogout = () => {
@@ -74,9 +121,7 @@ const AdminPanel = () => {
     navigate('/');
   };
 
-  if (!isAdmin) {
-    return null;
-  }
+  if (!isAdmin) return null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -101,13 +146,18 @@ const AdminPanel = () => {
           </CardHeader>
           <CardContent>
             {showAddForm && (
-              <form onSubmit={handleAddProduct} className="space-y-4 mb-6 p-4 border rounded-lg">
+              <form
+                onSubmit={handleAddProduct}
+                className="space-y-4 mb-6 p-4 border rounded-lg"
+              >
                 <div className="space-y-2">
                   <Label htmlFor="name">Product Name</Label>
                   <Input
                     id="name"
                     value={newProduct.name}
-                    onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                    onChange={(e) =>
+                      setNewProduct({ ...newProduct, name: e.target.value })
+                    }
                     required
                   />
                 </div>
@@ -115,8 +165,13 @@ const AdminPanel = () => {
                   <Label htmlFor="shortDesc">Short Description</Label>
                   <Input
                     id="shortDesc"
-                    value={newProduct.shortDescription}
-                    onChange={(e) => setNewProduct({ ...newProduct, shortDescription: e.target.value })}
+                    value={newProduct.short_description}
+                    onChange={(e) =>
+                      setNewProduct({
+                        ...newProduct,
+                        short_description: e.target.value,
+                      })
+                    }
                     required
                   />
                 </div>
@@ -124,8 +179,13 @@ const AdminPanel = () => {
                   <Label htmlFor="fullDesc">Full Description</Label>
                   <Textarea
                     id="fullDesc"
-                    value={newProduct.fullDescription}
-                    onChange={(e) => setNewProduct({ ...newProduct, fullDescription: e.target.value })}
+                    value={newProduct.full_description}
+                    onChange={(e) =>
+                      setNewProduct({
+                        ...newProduct,
+                        full_description: e.target.value,
+                      })
+                    }
                     required
                   />
                 </div>
@@ -134,54 +194,120 @@ const AdminPanel = () => {
                   <Input
                     id="price"
                     type="number"
-                    value={newProduct.price}
-                    onChange={(e) => setNewProduct({ ...newProduct, price: Number(e.target.value) })}
+                    value={newProduct.price_cents}
+                    onChange={(e) =>
+                      setNewProduct({
+                        ...newProduct,
+                        price_cents: Number(e.target.value),
+                      })
+                    }
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="image">Image URL</Label>
+                  <Label htmlFor="image">Product Image</Label>
                   <Input
                     id="image"
-                    value={newProduct.image}
-                    onChange={(e) => setNewProduct({ ...newProduct, image: e.target.value })}
-                    placeholder="Enter image URL or path"
-                    required
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setSelectedFile(file);
+                        // Create preview URL
+                        const previewUrl = URL.createObjectURL(file);
+                        setNewProduct({ ...newProduct, image_url: previewUrl });
+                      }
+                    }}
+                    required={!newProduct.image_url}
                   />
+                  {selectedFile && (
+                    <div className="mt-2">
+                      <img
+                        src={newProduct.image_url}
+                        alt="Preview"
+                        className="w-24 h-24 object-cover rounded border"
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {selectedFile.name}
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2">
-                  <Button type="submit">Add Product</Button>
-                  <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>
+                  <Button type="submit" disabled={uploading}>
+                    {uploading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Add Product
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowAddForm(false)}
+                    disabled={uploading}
+                  >
                     Cancel
                   </Button>
                 </div>
               </form>
             )}
 
-            <div className="space-y-4">
-              {products.map((product) => (
-                <div key={product.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-4">
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="w-16 h-16 object-cover rounded"
-                    />
-                    <div>
-                      <h3 className="font-semibold">{product.name}</h3>
-                      <p className="text-sm text-muted-foreground">₦{product.price.toLocaleString()}</p>
-                    </div>
-                  </div>
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    onClick={() => handleDelete(product.id)}
+            {loading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="animate-spin h-6 w-6 text-muted-foreground" />
+              </div>
+            ) : products.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center border rounded-lg bg-muted/10">
+                <p className="text-lg font-medium text-muted-foreground">
+                  No products found.
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Add your first product to get started.
+                </p>
+                <Button className="mt-4" onClick={() => setShowAddForm(true)}>
+                  <Plus className="mr-2 h-4 w-4" /> Add Product
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {products.map((product) => (
+                  <div
+                    key={product.id}
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/20 transition"
                   >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
+                    <div className="flex items-center gap-4">
+                      <img
+                        src={product.image_url}
+                        alt={product.name}
+                        className="w-16 h-16 object-cover rounded"
+                      />
+                      <div>
+                        <h3 className="font-semibold">{product.name}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          ₦{product.price_cents}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      onClick={() => handleDelete(product.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
           </CardContent>
         </Card>
       </div>
