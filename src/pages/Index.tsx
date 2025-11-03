@@ -94,7 +94,7 @@ const Index = () => {
         <div className="max-w-7xl mx-auto px-4 text-center text-sm text-muted-foreground">
           <span>© {new Date().getFullYear()} SkyBlue Shop</span>
           <span className="mx-2">·</span>
-          <span>Built with care</span>
+          <span>Powered by WebSync Inc</span>
         </div>
       </footer>
     </div>
